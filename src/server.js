@@ -5,8 +5,11 @@ const db = require('../config/keys').mongoURI;
 const app = express();
 const port = process.env.PORT || 5000;
 
+require('./models/user');
+
 mongoose.connect(db, {
     useNewUrlParser: true,
+    useUnifiedTopology: true,
     useFindAndModify: false
   })
   .then(() => {
