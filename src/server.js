@@ -1,11 +1,21 @@
 const express = require('express');
 const mongoose = require('mongoose');
+const bodyParser = require('body-parser');
 const db = require('../config/keys').mongoURI;
+const auth = require('./routes/auth');
 
 const app = express();
+
+// The port that the webserver listens to
 const port = process.env.PORT || 5000;
 
-require('./models/user');
+// Body parser middleware to parse request bodies
+app.use(
+  bodyParser.urlencoded({
+    extended: false
+  })
+);
+app.use(bodyParser.json());
 
 mongoose.connect(db, {
     useNewUrlParser: true,
@@ -19,10 +29,9 @@ mongoose.connect(db, {
     console.log(err);
   });
 
-app.get('/', (req, res) => {
-  res.send('Hello World!');
-});
-
 app.listen(port, () => {
   console.log(`Server is listening on ${port}`);
 });
+
+//Routes
+app.use('/api/auth', auth);
