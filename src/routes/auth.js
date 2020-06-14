@@ -1,7 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
 const User = require('../models/user');
+const keys = require('../../config/keys');
+const validateRegisterInput = require('../validator/register');
 
 router.use(function timeLog(req, res, next) {
   console.log('Time: ', Date.now());
@@ -13,47 +18,70 @@ router.get('/', (req, res) => {
 });
 
 router.post('/register', (req, res) => {
+  //Form validation
   const {
-    firstName,
-    lastName,
-    email,
-    password
-  } = req.body;
-  if (!firstName || !lastName || !email || !password) {
-    return res.status(422).json({
-      error: "Please fill all the required field."
-    });
+    errors,
+    isValid
+  } = validateRegisterInput(req.body);
+
+  //Check validation
+  if (!isValid) {
+    return res.status(400).json(errors);
   }
+  console.log(req.body);
   User.findOne({
-      email: email
+      email: req.body.email
     })
-    .then((savedUser) => {
-      if (savedUser) {
-        return res.status(422).json({
-          error: "User already exists with that email."
-        })
-      }
+    .then(user => {
+      if (user) {
+        return res.status(400).json({
+          message: 'Email already exists.'
+        });
+      } else {
+        const newUser = new User({
+          firstName: req.body.firstName,
+          lastName: req.body.lastName,
+          email: req.body.email,
+          password: req.body.password
+        });
 
-      const user = new User({
-        email,
-        password,
-        firstName,
-        lastName
-      });
+        // Hash password before saving in database
+        bcrypt.genSalt(10, (err, salt) => {
+          bcrypt.hash(newUser.password, salt, (err, hash) => {
+            // if (err) throw err;
+            newUser.password = hash;
+            newUser.save()
+              .then(user => {
+                const payload = {
+                  id: user.id,
+                  firstName: user.firstName,
+                  lastName: user.lastName
+                };
 
-      user.save()
-        .then(user => {
-          res.json({
-            message: "Saved successfully."
+                //Sign token
+                jwt.sign(
+                  payload,
+                  keys.secretOrKey, {
+                    expiresIn: 31556926
+                  },
+                  (err, token) => {
+                    if (err) {
+                      console.log(err);
+                    } else {
+                      res.json({
+                        success: true,
+                        token: 'Bearer' + token,
+                        name: user.firstName + user.lastName
+                      });
+                    }
+                  }
+                );
+              })
+              .catch(err => console.log(err));
           });
-        })
-        .catch(err => {
-          console.log(err);
-        })
-    })
-    .catch(err => {
-      console.log(err);
-    })
+        });
+      }
+    });
 });
 
 module.exports = router;
