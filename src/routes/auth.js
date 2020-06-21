@@ -3,6 +3,7 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const requiredLogin = require('../middlewares/requireLogin');
 
 const User = require('../models/user');
 const keys = require('../../config/keys');
@@ -15,7 +16,7 @@ router.use(function timeLog(req, res, next) {
   next();
 });
 
-router.get('/', (req, res) => {
+router.get('/protectedroute', requiredLogin, (req, res) => {
   res.send("Hello!!");
 });
 
@@ -93,8 +94,8 @@ router.post('/login', (req, res) => {
     return res.status(400).json(errors);
   }
 
-  const email = req.body.email;
-  const password = req.body.password;
+  const { email, password } = req.body;
+
   // Find user by email
   User.findOne({email}).then(user => {
     //Check if user exists
@@ -107,15 +108,15 @@ router.post('/login', (req, res) => {
         //User matched
         //Create JWT payload
         const payload = {
-          id: user.id,
+          _id: user._id,
           name: user.firstName + ' ' + user.lastName
         };
         //Sign token
-        jwt.sign(
+        const token = jwt.sign(
           payload,
           keys.secretOrKey,
           {
-            expiresIn: 31556926
+            expiresIn: 31556926 // 1 year
           },
           (err, token) => {
             res.json({
